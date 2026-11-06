@@ -4,7 +4,8 @@
 
 #Importando a bibliotecas
 import pygame
-from random import shuffle
+import webbrowser
+from random import shuffle, randint
 from pathlib import Path
 
 #Iniciando bibliotecas
@@ -54,41 +55,59 @@ pygame.mixer.music.set_endevent(fim_musica)
 pygame.mixer.music.load(str(musicas[indice]))
 pygame.mixer.music.play()
 
-#fundo do tabulereiro
-cor_fundo = 0, 0, 0
-fundo_largura = 700
-fundo_altura = 700
-fundo_x, fundo_y = (900-fundo_largura)/2, (760-fundo_altura)/2
-fundo = pygame.Rect(fundo_x, fundo_y, fundo_largura, fundo_altura)
+#fundo e borda do tabulereiro
+cor_do_fundo = 0, 200, 0
+cor_borda = 0, 0, 0
+borda_largura = 700
+borda_altura = 700
+borda_x, borda_y = (900-borda_largura)/2, (760-borda_altura)/2
+borda = pygame.Rect(borda_x, borda_y, borda_largura, borda_altura)
 
 #Carregar imagem do tabuleiro
 caminho_tabuleiro = diretorio / 'assets' / 'images' / 'tabuleiro_sprite' / 'tabuleiro_ludo.png'
-imagem0 = pygame.image.load(caminho_tabuleiro).convert_alpha()
+tabuleiro = pygame.transform.scale(pygame.image.load(caminho_tabuleiro).convert_alpha(), (640, 640))
 
 #Tamanho e cordenadas do tabuleiro
-imagem0_x, imagem0_y = imagem0.get_size()
-tabuleiro_x = imagem0_x * 10
-tabulerio_y = imagem0_y * 10
-centro_tabuleiro = (900-tabuleiro_x)/2, (760-tabulerio_y)/2
+tabuleiro_x, tabuleiro_y = tabuleiro.get_size()
+centro_tabuleiro = (900-tabuleiro_x)/2, (760-tabuleiro_y)/2
 
-#Redimensionamento do tabuleiro
-tabuleiro = pygame.transform.scale(imagem0, (640, 640))
-
-# caminho e carregar icon do dado
-caminho_dado = diretorio / 'assets' / 'images' / 'dado_sprite' / 'dado_icon.png'
-imagem_dado = pygame.image.load(caminho_dado).convert_alpha()
-
-# tamanho e cordenadas do dado no tabuleiro
-icon_dado = pygame.transform.scale(imagem_dado, (64,64))
+#caminho, carregar e coordenadas do icon do dado
+caminho_dado = diretorio / 'assets' / 'images' / 'icons' / 'dado_icon.png'
+dado = pygame.transform.scale(pygame.image.load(caminho_dado).convert_alpha(), (64,64))
 posicao_dado = 820, 16
 
-# caminho e carregar a imagem do 2ADS
-caminho_icon2ADS = diretorio / 'assets' / 'images' / 'icons' / '2ADS_icon.png'
-imagem_2ADS = pygame.image.load(caminho_icon2ADS).convert_alpha()
+#area cliclavel do icon dado
+areaclicavel_dado = pygame.Rect(820, 16, 64, 64)
 
-# tamanho e cordenadas
-icon_2ADS = pygame.transform.scale(imagem_2ADS, (64, 64))
+#Biblioteca para as faces do dado
+caminho_facesdado = {
+    1: diretorio / 'assets' / 'images' / 'dado_sprite' / 'dado_face1.png',
+    2: diretorio / 'assets' / 'images' / 'dado_sprite' / 'dado_face2.png',
+    3: diretorio / 'assets' / 'images' / 'dado_sprite' / 'dado_face3.png',
+    4: diretorio / 'assets' / 'images' / 'dado_sprite' / 'dado_face4.png',
+    5: diretorio / 'assets' / 'images' / 'dado_sprite' / 'dado_face5.png',
+    6: diretorio / 'assets' / 'images' / 'dado_sprite' / 'dado_face6.png'
+}
+
+imagem_facesdado = {
+    1: pygame.transform.scale(pygame.image.load(caminho_facesdado[1]).convert_alpha(), (64, 64)),
+    2: pygame.transform.scale(pygame.image.load(caminho_facesdado[2]).convert_alpha(), (64, 64)),
+    3: pygame.transform.scale(pygame.image.load(caminho_facesdado[3]).convert_alpha(), (64, 64)),
+    4: pygame.transform.scale(pygame.image.load(caminho_facesdado[4]).convert_alpha(), (64, 64)),
+    5: pygame.transform.scale(pygame.image.load(caminho_facesdado[5]).convert_alpha(), (64, 64)),
+    6: pygame.transform.scale(pygame.image.load(caminho_facesdado[6]).convert_alpha(), (64, 64))
+}
+
+#posição da face do dado
+posicao_facedado = 820, 80
+
+# caminho, carregar e cordenadas da imagem do 2ADS
+caminho_icon2ADS = diretorio / 'assets' / 'images' / 'icons' / '2ADS_icon.png'
+imagem_2ADS =  pygame.transform.scale(pygame.image.load(caminho_icon2ADS).convert_alpha(), (64, 64))
 posicao_2ADS = 20, 12
+
+#area ciclavel imagem 2ADS
+areaclicavel_imagem2ADS = pygame.Rect(20, 12, 64, 64)
 
 # Biblioteca das peças
 
@@ -158,30 +177,43 @@ posicao_peoes2 = {
 
 #Exercução do programa
 jogando = True
-cor_do_fundo = 255, 255, 255
+lado = 0
+
 while jogando == True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             jogando = False
+        elif event.type == pygame.MOUSEMOTION:
+            if areaclicavel_imagem2ADS.collidepoint(event.pos) or areaclicavel_dado.collidepoint(event.pos):
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+            else:
+                pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if areaclicavel_dado.collidepoint(event.pos):
+                lado = randint(1, 6)
+            if areaclicavel_imagem2ADS.collidepoint(event.pos):
+                webbrowser.open("https://www.instagram.com/2adsistemas/")
         elif event.type == fim_musica:
-            indice_da_musica = (indice + 1) % len(musicas)
+            indice = (indice + 1) % len(musicas)
             pygame.mixer.music.load(str(musicas[indice]))
             pygame.mixer.music.play()
 
-    #desenha o fundo do tabuleiro        
+    #Define o fundo desenha o borda do tabuleiro        
     tela.fill((cor_do_fundo))
-    tela.fill(cor_fundo, fundo)
+    tela.fill(cor_borda, borda)
 
     #desenha o tabuleiro
     tela.blit(tabuleiro, (centro_tabuleiro))
 
     #desenha icon dado
-    tela.blit(icon_dado, (posicao_dado))
-
+    tela.blit(dado, (posicao_dado))
+    if lado > 0:
+        tela.blit(imagem_facesdado[lado], posicao_facedado)
+    
     #desenha icon 2ADS
-    tela.blit(icon_2ADS, (posicao_2ADS))
-
-    # desenha as peças vermelhas/amarelas/verdes/azuis
+    tela.blit(imagem_2ADS, (posicao_2ADS))
+    
+    #desenha as peças vermelhas/amarelas/verdes/azuis
     for cor in posicao_peoes1:
         for posicao in posicao_peoes1[cor]:
             tela.blit(imagem_peoes1[cor], posicao)
