@@ -16,6 +16,13 @@ pygame.mixer.music.set_volume(0.025)
 #Resolvendo problemas do diretorio
 diretorio = Path(__file__).resolve().parent
 
+#Váriaveis de exercução e funcionamento
+jogo_ativo = True
+jogo_encerrado = False
+relogio = pygame.time.Clock()
+dado_status = True
+resultado_dado = 0
+
 #Tamanho da janela
 tela_largura = 900
 tela_altura = 760
@@ -265,10 +272,6 @@ posicao_peoes_2 = {
     'azul': [None, None, None, None],
 }
 
-#Váriaveis de exercução e funcionamento
-jogo_ativo = True
-dado_status = True
-resultado_dado = 0
 
 #Dicionario para a identificação dos turnos dos jogadores
 identificacao_de_turno = {
@@ -332,6 +335,63 @@ def movimento_valido(cor, numero):
     
     return False
 
+#Função que verifica se a futura movimentação de uma peça pode resultar em uma captura
+def captura_valida(cor, numero):
+    
+    progresso = posicao_peoes_1[cor][numero] #Onde a peça atualmente
+    casa_futuro_progresso = ((casas_de_entrada[cor] + (progresso + resultado_dado) - 2) % 36) + 1 #Onde ela estará ao realizar a movimentação
+    
+    #Procura entre os peões
+    for cores in posicao_peoes_1:
+        for numeros, progressos in enumerate(posicao_peoes_1[cores]):
+            
+            #Se ele estiver no percurso principal
+            if progressos is not None and progressos <= 36:
+                progresso_em_curso = posicao_peoes_1[cores][numeros]
+                casa_progresso_em_curso = ((casas_de_entrada[cores] + progresso_em_curso - 2) % 36) + 1
+                
+                #Se ele estiver dentro da casa segura não é capturável
+                if progressos == 1:
+                    if casa_futuro_progresso == casa_progresso_em_curso and cor != cores:
+                        return False
+                    
+                #Se ele estiver fora da cassa segura é capturável
+                if casa_futuro_progresso == casa_progresso_em_curso and cor != cores:
+                    return True
+                
+    #Retorna Falso caso não haja nenhuma peça capturável                
+    return False
+
+#Função que verifica se uma peça ao sair da base e ir para a casa segura pode eliminar uma peça adversária na mesma
+def captura_valida_peca_saindo_da_base(cor):
+
+    #Procura entre os peões
+    for cores in posicao_peoes_1:
+        for progressos in posicao_peoes_1[cores]:
+
+            #Se ele estiver no percurso principal
+            if progressos is not None and progressos <= 36:
+                progresso_pecas = progressos
+                casa_progresso_em_curso = ((casas_de_entrada[cores] + progresso_pecas - 2) % 36) + 1
+
+                #Se a peça adversária estiver na base segura no momento da saida da peça da base correspondente é capturada
+                if casa_progresso_em_curso == casas_de_entrada[cor] and cor != cores:
+                    return True
+    #Retorna Falso caso não haja nenhuma peça capturável
+    return False
+
+#Verifica se há um ganhador da partida
+def verificar_ganhador():
+    
+    #Procura dentro das cores
+    for cores in posicao_peoes_1:
+        
+        #Se todos os peões estiverem na ultima casa especial
+        if all(progresso == 40 for progresso in posicao_peoes_1[cores]):
+            return cores #retorna a cor dele
+    return None #retorna nenhum ganhador
+            
+
 #Loop para exercução do programa
 while jogo_ativo == True:
     
@@ -363,13 +423,31 @@ while jogo_ativo == True:
             
         #Detecta se o mouse passou por cima de algo interativo e muda o desenho do ponteiro
         elif event.type == pygame.MOUSEMOTION:
-            if area_clicavel_imagem_2ads.collidepoint(event.pos) or area_clicavel_dado.collidepoint(event.pos):
+
+            cursor_interativo = (area_clicavel_imagem_2ads.collidepoint(event.pos) or (dado_status and area_clicavel_dado.collidepoint(event.pos)))
+            
+            #Procura entre os peões
+            for cor in posicao_peoes_1:
+                for numero, progresso in enumerate(posicao_peoes_1[cor]):
+
+                    #Cria um área clicavel para cada um deles
+                    area_clicavel_peao = imagem_peoes_1[cor].get_rect()
+                    area_clicavel_peao.topleft = coordenadas_peao(cor, numero)
+
+                    #Se a posição do mouse corresponder a posição do peão torna o cursor True
+                    if (area_clicavel_peao.collidepoint(event.pos) and movimento_valido(cor, numero)):
+                        cursor_interativo = True
+
+            #Condições para mudança do cursos
+            #Se True muda o cursor para uma mão
+            if cursor_interativo:
                 pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+            #Se False muda o cursor para uma seta
             else:
                 pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
                 
         #Detecta clique do mouse
-        elif event.type == pygame.MOUSEBUTTONDOWN:
+        elif event.type == pygame.MOUSEBUTTONDOWN and not jogo_encerrado:
             
             #Funcionamento dos peões
             for cor in posicao_peoes_1:
@@ -389,34 +467,83 @@ while jogo_ativo == True:
                             #caso a peça esteja na base, entra na primeira casa do seu percurso.
                             if posicao_peoes_1[cor][numero] is None:
                                 posicao_peoes_1[cor][numero] = 1
+                                
+                                #Esse If basicamente só é acionado quando há uma peça capturável
+                                #Quando acionado faz o mesmo processo que na validação, em vez de retornar True/False retorna a peça eliminada voltando para a base
+                                if captura_valida_peca_saindo_da_base(cor) is True:
+                                        for cores in posicao_peoes_1:
+                                            for numeros, progressos in enumerate(posicao_peoes_1[cores]):
 
+                                                if progressos is not None and progressos <= 36:
+                                                    progresso_pecas = progressos
+                                                    casa_progresso_em_curso = ((casas_de_entrada[cores] + progresso_pecas - 2) % 36) + 1
+
+                                                    if casa_progresso_em_curso == casas_de_entrada[cor] and cor != cores:
+                                                        posicao_peoes_1[cores][numeros] = None
+                                                        
+                                                        #Guias do terminal
+                                                        print(f'Peça ({cores}, {numeros + 1}) foi capturada por peça ({cor}, {numero + 1})')
+                                                    
                             #Caso a peça esteja no trajeto, movimenta a peça
                             elif posicao_peoes_1[cor][numero] <= 36:
+                                
+                                #Esse If basicamente só é acionado quando há uma peça capturável
+                                #Quando acionado faz o mesmo processo que na validação, em vez de retornar True/False retorna a peça eliminada voltando para a base
+                                if captura_valida(cor, numero) is True:
+                                    progresso = posicao_peoes_1[cor][numero]
+                                    casa_futuro_progresso = ((casas_de_entrada[cor] + (progresso + resultado_dado) - 2) % 36) + 1
+                                    for cores in posicao_peoes_1:
+                                        for numeros, progressos in enumerate(posicao_peoes_1[cores]):
+
+                                            if progressos is not None and progressos <= 36:
+                                                casa_progresso_em_curso = ((casas_de_entrada[cores] + progressos - 2) % 36) + 1
+
+                                                if casa_progresso_em_curso == casa_futuro_progresso and cor != cores:
+                                                    posicao_peoes_1[cores][numeros] = None
+                                                    
+                                                    #Guias do terminal
+                                                    print(f'Peça ({cores}, {numeros + 1}) foi capturada por peça ({cor}, {numero + 1})')
+                                                    
+                                #Movimenta a peça com o resultado do dado   
                                 posicao_peoes_1[cor][numero] += resultado_dado
 
                             #Caso ele esteja em um casa especial, sendo válido, avança para a próxima
                             else:
                                 posicao_peoes_1[cor][numero] += 1
                             
-                            #Desbloqueia o dado
-                            dado_status = True
+                            #Se tiver um ganhador recebe a cor, senão recebe None
+                            ganhador = verificar_ganhador()
                             
-                            #Muda o turno
-                            turno_atual += 1
-                            
-                            #Ao chegar no turno azul, volta para o vermelho
-                            if turno_atual > 4:
-                                turno_atual = 1
-                        
-                            #Guias do terminal
-                            print(f'Movimento feito, turno atual é do {identificacao_de_turno[turno_atual]}')
-                            print(f'Movimento: peça {cor}, número {numero + 1}')
-                                                
+                            #Verifica se há um ganhador
+                            #Caso sim, congela o jogo e diz quem foi o ganhador
+                            if ganhador is not None:
+                                jogo_encerrado = True
+                                dado_status = False
+                                print('Parabéns!')
+                                print(f'O Ganhador dessa partida foi: {ganhador}.')
+                                print('Obrigado por Jogar - 2ADS')
+                            #Caso não, o jogo flui normalmente
+                            else:
+                                #Desbloqueia o dado
+                                dado_status = True
+                                
+                                #Muda o turno
+                                turno_atual += 1
+                                
+                                #Ao chegar no turno azul, volta para o vermelho
+                                if turno_atual > 4:
+                                    turno_atual = 1
+                                
+                                #Guias do terminal
+                                print(f'Movimento: peça {cor}, número {numero + 1}')
+                                print(f'Movimento feito, turno atual é do {identificacao_de_turno[turno_atual]}')
+        
+                                                       
             #Caso clique em cima do dado, gera um número de 1-6
             if dado_status and area_clicavel_dado.collidepoint(event.pos):
                 
                 #Sorteia o número de 1-6
-                resultado_dado = randint(1, 6)
+                resultado_dado = randint(1,6)
                 
                 #Bloqueia o dado
                 #(Para um jogador não jogar duas vezes)
@@ -451,6 +578,7 @@ while jogo_ativo == True:
                 #Guias do terminal
                 print(f'Logo turno atual é do {identificacao_de_turno[turno_atual]}')             
                 print(' ')
+            
 
                 
             #Caso clique em cima do icon 2ads, leva para o instagram da sala
@@ -466,6 +594,7 @@ while jogo_ativo == True:
             
     #atualiza a tela
     pygame.display.flip()
+    relogio.tick(60)
 
 #encerra o programa
 pygame.quit()
