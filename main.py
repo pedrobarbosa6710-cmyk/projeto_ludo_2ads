@@ -313,9 +313,9 @@ def movimento_valido(cor, numero):
     if dado_status == True or identificacao_de_turno[turno_atual] != cor:
         return False
     
-    #Caso a peça em que o jogador cliclou ainda estiver na base, verifica se o resultado é igual a 6
+    #Caso a peça em que o jogador cliclou ainda estiver na base, verifica se o resultado é igual a 6 ou 1
     if progresso is None:
-        return  resultado_dado == 6
+        return  resultado_dado == 6 or resultado_dado == 1
     
     #Caso a peça em que o jogador clicou estiver no percurso
     elif progresso <= 36:
@@ -527,8 +527,10 @@ while jogo_ativo == True:
                                 #Desbloqueia o dado
                                 dado_status = True
                                 
-                                #Muda o turno
-                                turno_atual += 1
+                                #Se o resultado do dado for 6, o turno ainda é do jogador
+                                if resultado_dado != 6:
+                                    #Muda o turno
+                                    turno_atual += 1
                                 
                                 #Ao chegar no turno azul, volta para o vermelho
                                 if turno_atual > 4:
