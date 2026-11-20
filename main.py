@@ -13,17 +13,19 @@ from sistemas.tabuleiro import casas_do_tabuleiro #Importa dicionário das posi�
 #Iniciando bibliotecas
 pygame.init()
 pygame.mixer.init()
-pygame.mixer.music.set_volume(0.025)
+pygame.mixer.music.set_volume(0.050)
 
 #Resolvendo problemas do diretorio
 diretorio = Path(__file__).resolve().parent
 
 #Cria o objeto do Jogo
 #A tela é criada antes do carregamento das imagens, pois convert_alpha() depende do modo de vídeo
-jogo = Jogo((900, 760), 'PROJETO LUDO - 2ADS', diretorio, casas_do_tabuleiro)
+jogo = Jogo(900, 760, 'LUDO ARCÂNIA', 'inicio', casas_do_tabuleiro)
 
 #Carrega os caminhos, imagens e posições das imagens
-caminhos_imagens, imagens, posicoes_imagens = carregar_recursos(diretorio)
+caminhos_imagens, imagens, posicoes_imagens, musicas, efeitos_sonoros = carregar_recursos(diretorio, jogo)
+
+jogo.configurar_audio(musicas, efeitos_sonoros)
 
 jogo.criar_peoes(imagens) #Executa função para criar os peões
 

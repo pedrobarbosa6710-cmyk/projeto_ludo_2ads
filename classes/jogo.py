@@ -10,9 +10,10 @@ evento_fim_musica = pygame.USEREVENT + 1
 
 #Classe que define as caracteristicas do Jogo
 class Jogo:
-    def __init__(self, tela_dimensoes, titulo, diretorio, casas_do_tabuleiro):
+    def __init__(self, tela_largura, tela_altura, titulo, tela_atual, casas_do_tabuleiro,):
         self.jogo_ativo = True #Variavel que indica se o jogo está ativo ou desativo
         self.jogo_encerrado = False #Variavel que indica se o jogo acabou ou se ainda está em andamento
+        self.confirmacao_sair = False
         
         self.casas_de_entrada = {'vermelho': 1, 'amarelo': 10, 'verde': 28,'azul': 19} #Dicionario das casas e coordenadas do tabuleiro
         self.casas_do_tabuleiro = casas_do_tabuleiro #Dicionario com as coordenadas do tabuleiro
@@ -20,36 +21,15 @@ class Jogo:
         self.turno_atual = 0 #Idenficação do turno atual
         self.identificacao_de_turno = {0: 'vermelho', 1: 'amarelo', 2: 'azul', 3: 'verde'} #Dicionario para a identificação dos turnos dos jogadores
         self.dado_status = True #Variavel que indica se o dado pode ou não ser lançado
-        self.resultado_dado = 0 #Variavel que guarda o valor gerado pelo dado. Caso 0, ainda não houve nenhum lançamento
+        self.resultado_dado = 0 #Variavel que guarda o valor gerado pelo dado. Caso 0, ainda não houve nenhum lançamento 
         
-        #Lista de Playlist
-        self.musicas = [
-            diretorio / 'assets' / 'sounds' / 'faixa_1.mp3',
-            diretorio / 'assets' / 'sounds' / 'faixa_2.mp3',
-            diretorio / 'assets' / 'sounds' / 'faixa_3.mp3',
-            diretorio / 'assets' / 'sounds' / 'faixa_4.mp3',
-            diretorio / 'assets' / 'sounds' / 'faixa_5.mp3',
-            diretorio / 'assets' / 'sounds' / 'faixa_6.mp3',
-            diretorio / 'assets' / 'sounds' / 'faixa_7.mp3',
-            diretorio / 'assets' / 'sounds' / 'faixa_8.mp3',
-            diretorio / 'assets' / 'sounds' / 'faixa_9.mp3',
-            diretorio / 'assets' / 'sounds' / 'faixa_10.mp3'
-        ]
-        
-        #Embaralhamento das músicas
-        shuffle(self.musicas)
-
-        #Loop da playlist
-        self.musica_indice = 0
-        pygame.mixer.music.set_endevent(evento_fim_musica)
-
-        #Exercução das músicas
-        pygame.mixer.music.load(str(self.musicas[self.musica_indice]))
-        pygame.mixer.music.play()
                 
-        self.relogio = pygame.time.Clock() #Variavel que 
-        self.tela_dimensoes = tela_dimensoes #Variavel que guarda as dimensões da tela
+        self.relogio = pygame.time.Clock() #Variavel que
+        self.tela_largura = tela_largura
+        self.tela_altura = tela_altura
+        self.tela_dimensoes = (self.tela_largura, self.tela_altura) #Variavel que guarda as dimensões da tela
         self.tela = pygame.display.set_mode((self.tela_dimensoes)) #Variavel que armazena a tela
+        self.tela_atual = tela_atual
         
         pygame.display.set_caption(titulo) #Variavel que armazena o titulo da tela
         self.icon = None #Variavel que guarda o favicon da tela
@@ -87,6 +67,22 @@ class Jogo:
             }
         }
         
+    def configurar_audio(self, musicas, efeitos_sonoros):
+        
+        self.musicas = musicas
+        self.efeitos_sonoros = efeitos_sonoros
+        
+        #Embaralhamento das músicas
+        shuffle(self.musicas)
+
+        #Loop da playlist
+        self.musica_indice = 0
+        pygame.mixer.music.set_endevent(evento_fim_musica)
+
+        #Exercução das músicas
+        pygame.mixer.music.load(str(self.musicas[self.musica_indice]))
+        pygame.mixer.music.play()
+        
     #Método que processa os eventos do jogo
     def processar_eventos(self, eventos, interface):
         
@@ -96,11 +92,22 @@ class Jogo:
                 self.jogo_ativo = False #Decalra que o jogo esta inativo, acabando como while
                 
             elif event.type == pygame.MOUSEMOTION: #Se o evento for a movimentação do mouse
-                interface.sobre_area_clicavel('mouse_passando_por_cima', event.pos) #Chama o método que verifica se é necessário a troca do ponteiro
+                
+                if self.confirmacao_sair:
+                    interface.sobre_area_clicavel('mouse_passando_por_cima', event.pos)
+                else:
+                    interface.sobre_area_clicavel('mouse_passando_por_cima', event.pos) #Chama o método que verifica se é necessário a troca do ponteiro
                 
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1: #Se ocorrer um clique com o botão direito
-                if not self.jogo_encerrado: #Se o jogo não tiver um ganhador
-                    self.processar_clique(event.pos, interface) #Chama método que processa o clique
+                
+                if self.confirmacao_sair:
+                    self.processar_clique_confirmacao(event.pos, interface)
+                    
+                elif self.jogo_encerrado:
+                    if self.tela_atual == 'vitoria':
+                        self.processar_clique(event.pos, interface)
+                else:
+                    self.processar_clique(event.pos, interface)
                     
             elif event.type == evento_fim_musica: #Se a música acabar
                 self.atualizar_musicas() #Chama o método que atualiza a música
@@ -114,9 +121,11 @@ class Jogo:
         for grupo in self.peoes.values():
             for peca in grupo.values():
                                 
-                if interface.sobre_area_clicavel('Mouse_clicou_em_cima', posicao_mouse, objeto='peoes', peca=peca): #Verifica se ocorreu um clique sobre um peão
+                if interface.sobre_area_clicavel('mouse_clicou_em_cima', posicao_mouse, objeto='peoes', peca=peca): #Verifica se ocorreu um clique sobre um peão
                                     
                     if self.movimento_valido(peca): #Verifica se a peça clicada pode exercer movimento, se Verdadeiro verifica as condições abaixo:
+                        
+                        self.efeitos_sonoros['efeito_movimento_peca'].play()
                                         
                         if peca.posicao is None: #caso a peça esteja na base, entra na primeira casa do seu percurso
                                     
@@ -150,8 +159,9 @@ class Jogo:
     
     #Método que processa os cliques realizado no icone do dado     
     def processar_clique_icone_dado(self, posicao_mouse, interface):
-        if self.dado_status and interface.sobre_area_clicavel('Mouse_clicou_em_cima', posicao_mouse, objeto='imagens/icones', elemento='icone_dado'): #Caso clique em cima icone do dado
+        if self.dado_status and interface.sobre_area_clicavel('mouse_clicou_em_cima', posicao_mouse, objeto='imagens/icones', elemento='icone_dado'): #Caso clique em cima icone do dado
                     
+            self.efeitos_sonoros['efeito_de_clique'].play()
             self.girar_dado() #Executa o giro do dado
             
             if not self.movimento_disponivel():  #Se não tiver nenhuma peça fora da base, muda o turno para o próximo jogador
@@ -159,18 +169,75 @@ class Jogo:
     
     #Método que processa os cliques realizado na imagem do 2ads    
     def processar_clique_imagem_2ads(self, posicao_mouse, interface):
-        if interface.sobre_area_clicavel('Mouse_clicou_em_cima', posicao_mouse, objeto='imagens/icones', elemento='imagem_2ads'): #Caso clique em cima do icon 2ads
+        if interface.sobre_area_clicavel('mouse_clicou_em_cima', posicao_mouse, objeto='imagens/icones', elemento='imagem_2ads'): #Caso clique em cima do icon 2ads
+            self.efeitos_sonoros['efeito_de_clique'].play()
             webbrowser.open("https://www.instagram.com/2adsistemas/") #Leva para o instagram da sala    
+            
+    def processar_clique_botao_jogar(self, posicao_mouse, interface):
+        if interface.sobre_area_clicavel('mouse_clicou_em_cima', posicao_mouse, objeto='imagens/icones', elemento='botao_jogar'):
+            self.efeitos_sonoros['efeito_de_clique'].play()
+            self.tela_atual = 'jogo'
+            
+    def processar_clique_botao_creditos(self, posicao_mouse, interface):
+            if interface.sobre_area_clicavel('mouse_clicou_em_cima', posicao_mouse, objeto='imagens/icones', elemento='botao_creditos'):
+                self.efeitos_sonoros['efeito_de_clique'].play()
+                self.tela_atual = 'creditos'
+                
+    def processar_clique_botao_voltar(self, posicao_mouse, interface):
+            if interface.sobre_area_clicavel('mouse_clicou_em_cima', posicao_mouse, objeto='imagens/icones', elemento='botao_voltar'):
+               self.efeitos_sonoros['efeito_de_clique'].play()
+               self.tela_atual = 'inicio'
+               
+    def processar_clique_botao_sair(self, posicao_mouse, interface):
+            if interface.sobre_area_clicavel('mouse_clicou_em_cima', posicao_mouse, objeto='imagens/icones', elemento='botao_sair'):
+               self.efeitos_sonoros['efeito_de_clique'].play()
+               self.confirmacao_sair = True
+               return True
+            return False
+               
+    def processar_clique_botao_voltar_para_inicio(self, posicao_mouse, interface):
+            if interface.sobre_area_clicavel('mouse_clicou_em_cima', posicao_mouse, objeto='imagens/icones', elemento='botao_voltar_para_inicio'):
+               self.efeitos_sonoros['efeito_de_clique'].play()
+               self.tela_atual = 'inicio'
+               self.reiniciar()
+               
+    def processar_clique_confirmacao(self, posicao_mouse, interface):
+        
+        if interface.sobre_area_clicavel('mouse_clicou_em_cima', posicao_mouse, objeto='imagens/icones', elemento='botao_cancelar'):
+            self.efeitos_sonoros['efeito_de_clique'].play()
+            self.confirmacao_sair = False
+            
+        elif interface.sobre_area_clicavel('mouse_clicou_em_cima', posicao_mouse, objeto='imagens/icones', elemento='botao_confirmacao'):
+            self.efeitos_sonoros['efeito_de_clique'].play()
+            self.confirmacao_sair = False
+            self.reiniciar()
+            self.tela_atual = 'inicio'
             
     #Método que processa chama os métodos de processo de clique
     def processar_clique(self, posicao_mouse, interface):
-        self.processar_clique_peao(posicao_mouse, interface)
-        self.processar_clique_icone_dado(posicao_mouse, interface)
-        self.processar_clique_imagem_2ads(posicao_mouse, interface)
+        
+        if self.tela_atual == 'inicio':
+            self.processar_clique_imagem_2ads(posicao_mouse, interface)
+            self.processar_clique_botao_jogar(posicao_mouse, interface)
+            self.processar_clique_botao_creditos(posicao_mouse, interface)
+        elif self.tela_atual == 'creditos':
+            self.processar_clique_botao_voltar(posicao_mouse, interface)
+        elif self.tela_atual == 'jogo':
+            
+            if self.processar_clique_botao_sair(posicao_mouse, interface):
+                return
+            
+            self.processar_clique_imagem_2ads(posicao_mouse, interface)
+            self.processar_clique_peao(posicao_mouse, interface)
+            self.processar_clique_icone_dado(posicao_mouse, interface)
+            
+        elif self.tela_atual == 'vitoria':
+            self.processar_clique_botao_voltar_para_inicio(posicao_mouse, interface)
           
     #Método que gira o dado   
     def girar_dado(self):
-        self.resultado_dado = randint(1,6) #Sorteia o número de 1-6
+        self.efeitos_sonoros['efeito_ao_jogar_dado'].play()
+        self.resultado_dado = randint(1, 6) #Sorteia o número de 1-6
         self.dado_status = False #Bloqueia o dado
                 
         #Guias do terminal
@@ -240,7 +307,8 @@ class Jogo:
             peca.posicao += self.resultado_dado #Adiciona o resultado do dado a sua posição
         
         elif tipo == 'movimento_nas_casas_especiais': #Caso esteja nas casas especiais
-            peca.posicao += 1 #Avança para a próxima casa espécial
+            peca.posicao += 1 #Avança para a próxima casa espécial]
+            
 
     #Método que verifica se a futura movimentação de uma peça pode resultar em uma captura
     def captura_valida(self, peao):
@@ -342,14 +410,15 @@ class Jogo:
             
             if all(peca.posicao == 40 for peca in grupo.values()): #Se todos os peões estiverem na ultima casa especial
                 return cor #retorna a cor do grupo
-            
         return None #retorna que não há nenhum ganhador
     
     #Método que realiza o fim da partida    
     def fim_da_partida(self):
+        
         self.jogo_encerrado = True #Atribui a variável um valor que indica que tem um ganhador
         self.dado_status = False #Bloqueia o dado para impossibilitar sorteios
         #Guias do terminal
+        self.tela_atual = 'vitoria'
         print('Parabéns!') 
         print(f'O Ganhador dessa partida foi: {self.verificar_ganhador()}.')
         print('Obrigado por Jogar - 2ADS')
@@ -360,3 +429,14 @@ class Jogo:
         self.musica_indice = (self.musica_indice + 1) % len(self.musicas) 
         pygame.mixer.music.load(str(self.musicas[self.musica_indice]))
         pygame.mixer.music.play()
+        
+    def reiniciar(self):
+        self.jogo_encerrado = False
+        self.turno_atual = 0
+        self.dado_status = True
+        self.resultado_dado = 0
+
+        # Reinicia todos os peões
+        for grupo in self.peoes.values():
+            for peca in grupo.values():
+                peca.posicao = None
