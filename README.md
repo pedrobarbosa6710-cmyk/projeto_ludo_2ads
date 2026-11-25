@@ -29,4 +29,4 @@ Pedro Gabriel
 
 ## Status
 
-Em desenvolvimento, versão protótipo funcional.
+Primeira versão disponível para jogar! Novas atualizações em breve.
