@@ -164,21 +164,31 @@ class Interface:
                     
         elif self.jogo.tela_atual == 'jogo':
             if tipo == 'mouse_passando_por_cima': #Caso o mouse passe por cima
-                self.botao_alternativo['botao_confirmacao'] = int(self.areas_clicaveis['botao_confirmacao'].collidepoint(posicao_mouse)) #retorna 0 ou 1    
+                self.botao_alternativo['botao_confirmacao'] = int(self.areas_clicaveis['botao_confirmacao'].collidepoint(posicao_mouse)) #retorna 0 ou 1
                 self.botao_alternativo['botao_cancelar'] = int(self.areas_clicaveis['botao_cancelar'].collidepoint(posicao_mouse)) #retorna 0 ou 1
                 #Variável que armazena um valor de verdadeiro ou falso, dependendo se o mouse passou por cima ou não
+
+                cursor_interativo = False #Indica que o cursor não é interativo
+
                 cursor_interativo = (
                     (self.jogo.dado_status and self.areas_clicaveis['icone_dado'].collidepoint(posicao_mouse)) or
                     self.areas_clicaveis['imagem_2ads'].collidepoint(posicao_mouse) or
-                    self.areas_clicaveis['botao_sair'].collidepoint(posicao_mouse) or
-                    self.areas_clicaveis['botao_confirmacao'].collidepoint(posicao_mouse) or
-                    self.areas_clicaveis['botao_cancelar'].collidepoint(posicao_mouse) 
+                    self.areas_clicaveis['botao_sair'].collidepoint(posicao_mouse) 
                 )
                 #Procura entre os peões
                 for grupo in self.jogo.peoes.values():
                     for peca in grupo.values():
                         if (self.cria_area_clicavel('peoes', peca).collidepoint(posicao_mouse) and self.jogo.movimento_valido(peca)):
                             cursor_interativo = True #Retorna Verdadeiro
+
+                #Verifica se os botões de cancelamento e confirmamento podem ser clicados
+                if self.jogo.confirmacao_sair:
+                    if (
+                        self.areas_clicaveis['botao_confirmacao'].collidepoint(posicao_mouse) or
+                        self.areas_clicaveis['botao_cancelar'].collidepoint(posicao_mouse)
+                    ):
+                        cursor_interativo = True
+
                 if cursor_interativo: #Se Verdadeiro muda o cursor para uma mão
                     pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
                 else: #Se Falso muda o cursor para uma seta
